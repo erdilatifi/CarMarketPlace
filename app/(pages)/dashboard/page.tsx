@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import CarFormModal from "@/components/component/CardFormModal";
 import CarCard from "@/components/component/CarCard";
+import ConfirmationDialog from "@/components/ui/confirmation-dialog";
 
 export interface Car {
   id: string;
@@ -26,6 +27,8 @@ const SellerDashboard = () => {
   const supabase = createClient();
   const [cars, setCars] = useState<Car[]>([]);
   const [loadingCars, setLoadingCars] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [carToDelete, setCarToDelete] = useState<string | null>(null);
 
   // Fetch seller cars
   const fetchCars = async () => {
@@ -46,14 +49,23 @@ const SellerDashboard = () => {
     fetchCars();
   }, [user]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this listing?")) return;
-    const { error } = await supabase.from("cars").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Car deleted!");
+  const handleDeleteClick = (id: string) => {
+    setCarToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!carToDelete) return;
+    
+    const { error } = await supabase.from("cars").delete().eq("id", carToDelete);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Car listing deleted successfully!");
       fetchCars();
     }
+    
+    setCarToDelete(null);
   };
 
   if (loading || loadingCars) {
@@ -87,12 +99,24 @@ const SellerDashboard = () => {
                 key={car.id}
                 car={car}
                 fetchCars={fetchCars}
-                onDelete={handleDelete}
+                onDelete={handleDeleteClick}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Car Listing"
+        description="Are you sure you want to delete this car listing? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleDeleteConfirm}
+        variant="destructive"
+      />
     </div>
   );
 };

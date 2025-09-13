@@ -4,7 +4,6 @@ import React from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CarImageCarousel from "@/components/component/CarImageCarousel";
-import CarImageUploader from "@/components/component/CarImageUploader";
 import CarFormModal from "@/components/component/CardFormModal";
 import { Car } from "@/app/(pages)/dashboard/page";
 
@@ -28,7 +27,7 @@ const CarCard: React.FC<Props> = ({ car, fetchCars, onDelete }) => {
         <p><strong>Gearbox:</strong> {car.gearbox}</p>
         <p><strong>Fuel:</strong> {car.fuel_type}</p>
 
-        <CarImageUploader carId={car.id} onUploadComplete={fetchCars} />
+    
       </CardContent>
       <CardFooter className="flex justify-between">
         <CarFormModal car={car} fetchCars={fetchCars} />
