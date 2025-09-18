@@ -19,6 +19,7 @@ export interface Car {
   gearbox: string;
   fuel_type: string;
   seller_id: string;
+  seller_username: string | null 
   created_at: string;
 }
 

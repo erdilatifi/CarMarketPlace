@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
-  const [year, setYear] = useState<number>(2020);
+  const [year, setYear] = useState<number>(new Date().getFullYear());
   const [price, setPrice] = useState<number>(0);
   const [mileage, setMileage] = useState<number>(0);
   const [gearbox, setGearbox] = useState("Manual");
@@ -54,28 +54,24 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
   }, [car, modalOpen]);
 
   const uploadImages = async (carId: string, images: File[]) => {
-    try {
-      for (let i = 0; i < images.length; i++) {
-        const file = images[i];
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${carId}/${Date.now()}-${i}.${fileExt}`;
+    for (let i = 0; i < images.length; i++) {
+      const file = images[i];
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${carId}/${Date.now()}-${i}.${fileExt}`;
 
-        // Upload to Supabase Storage
-        const { error: uploadError } = await supabase
-          .storage.from("car-images")
-          .upload(fileName, file);
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase
+        .storage.from("car-images")
+        .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
+      if (uploadError) throw uploadError;
 
-        // Insert record in car_images table
-        const { error: dbError } = await supabase
-          .from("car_images")
-          .insert([{ car_id: carId, path: fileName }]);
+      // Insert record in car_images table
+      const { error: dbError } = await supabase
+        .from("car_images")
+        .insert([{ car_id: carId, path: fileName }]);
 
-        if (dbError) throw dbError;
-      }
-    } catch (error: any) {
-      throw new Error(`Image upload failed: ${error.message}`);
+      if (dbError) throw dbError;
     }
   };
 
@@ -86,38 +82,51 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
     }
 
     setSaving(true);
-    const payload = { 
-      brand, 
-      model, 
-      year, 
-      price, 
-      mileage, 
-      gearbox, 
+
+    const payload = {
+      brand,
+      model,
+      year,
+      price,
+      mileage,
+      gearbox,
       fuel_type: fuelType,
-      seller_id: user.id 
+      seller_id: user.id, 
+      seller_username: user.user_metadata?.full_name || 'No name set',
+      updated_at: new Date().toISOString(),
     };
-    
+
     try {
-      let error, result;
+      let result;
+
       if (car) {
-        ({ error } = await supabase.from("cars").update(payload).eq("id", car.id));
+        const { data, error } = await supabase
+          .from("cars")
+          .update(payload)
+          .eq("id", car.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        result = data;
       } else {
-        ({ data: result, error } = await supabase.from("cars").insert(payload).select().single());
-      }
-      
-      if (error) {
-        toast.error(error.message);
-        return;
+        const { data, error } = await supabase
+          .from("cars")
+          .insert(payload)
+          .select()
+          .single(); // ensures we get the new car id
+        if (error) throw error;
+        result = data;
       }
 
-      // Upload images if any were selected
+      // Upload images if any
       if (selectedImages.length > 0 && result) {
         await uploadImages(result.id, selectedImages);
         toast.success(`${selectedImages.length} image(s) uploaded successfully!`);
       }
 
       toast.success("Car saved successfully!");
-      fetchCars();
+      fetchCars(); // refresh list
       setModalOpen(false);
     } catch (error: any) {
       toast.error(error.message);
@@ -141,23 +150,23 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
             <Input value={brand} onChange={(e) => setBrand(e.target.value)} />
           </div>
           <div>
-            <Label  className="mb-2">Model</Label>
+            <Label className="mb-2">Model</Label>
             <Input value={model} onChange={(e) => setModel(e.target.value)} />
           </div>
           <div>
-            <Label  className="mb-2">Year</Label>
+            <Label className="mb-2">Year</Label>
             <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} />
           </div>
           <div>
-            <Label  className="mb-2">Price (€)</Label>
+            <Label className="mb-2">Price (€)</Label>
             <Input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} />
           </div>
           <div>
-            <Label  className="mb-2">Mileage (km)</Label>
+            <Label className="mb-2">Mileage (km)</Label>
             <Input type="number" value={mileage} onChange={(e) => setMileage(Number(e.target.value))} />
           </div>
           <div>
-            <Label  className="mb-2">Gearbox</Label>
+            <Label className="mb-2">Gearbox</Label>
             <Select value={gearbox} onValueChange={setGearbox}>
               <SelectTrigger><SelectValue placeholder="Select Gearbox" /></SelectTrigger>
               <SelectContent>
@@ -168,7 +177,7 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
             </Select>
           </div>
           <div>
-            <Label  className="mb-2">Fuel Type</Label>
+            <Label className="mb-2">Fuel Type</Label>
             <Select value={fuelType} onValueChange={setFuelType}>
               <SelectTrigger><SelectValue placeholder="Select Fuel" /></SelectTrigger>
               <SelectContent>
@@ -179,8 +188,7 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
               </SelectContent>
             </Select>
           </div>
-          
-          {/* Image uploader - show for all cars */}
+
           <div>
             <TempImageUploader 
               onImagesChange={setSelectedImages}

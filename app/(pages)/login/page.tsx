@@ -7,9 +7,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Input } from '@/components/ui/input'
 import {toast} from 'sonner'
 import { createClient } from '@/utils/supabase/client'
-import { Chrome } from "lucide-react";
+import { FaGoogle } from "react-icons/fa";
 import { useAuth } from '@/context/AuthContext'
-import Spinner from '@/components/ui/spinner'
 import Link from 'next/link'
 
 const LoginPage = () => {
@@ -115,7 +114,7 @@ const handleGoogle = async () => {
             ) : (
               <div className="flex items-center justify-center gap-2">
                 <span>Login with</span>
-                <Chrome />
+                <FaGoogle  />
               </div>
             )}
           </Button>
