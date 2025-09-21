@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -18,6 +18,7 @@ type Car = {
   gearbox: string;
   fuel_type: string;
   seller_id: string;
+  seller_username: string | null;
   created_at: string;
 };
 
@@ -27,7 +28,6 @@ const CarDetailPage = () => {
   const supabase = createClient();
 
   const [car, setCar] = useState<Car | null>(null);
-  const [sellerName, setSellerName] = useState<string>("Seller");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,26 +35,23 @@ const CarDetailPage = () => {
       const id = params?.id as string;
       if (!id) return;
       setLoading(true);
+
       try {
-        const { data, error } = await supabase.from("cars").select("*").eq("id", id).single();
+        // Fetch car data including seller_username
+        const { data, error } = await supabase
+          .from("cars")
+          .select("*")
+          .eq("id", id)
+          .single();
         if (error) throw error;
         setCar(data as Car);
-
-        // Load seller name from profiles
-        if (data?.seller_id) {
-          const { data: prof } = await supabase
-            .from("profiles")
-            .select("id, username, full_name")
-            .eq("id", data.seller_id)
-            .single();
-          if (prof) setSellerName(prof.username || prof.full_name || "Seller");
-        }
       } catch (err: any) {
-        toast.error(err.message || "Failed to load car");
+        toast.error(err.message || "Failed to load car details");
       } finally {
         setLoading(false);
       }
     };
+
     fetchData();
   }, [params?.id]);
 
@@ -71,7 +68,9 @@ const CarDetailPage = () => {
       <div className="min-h-screen w-full flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-500 mb-4">Car not found.</p>
-          <Button variant="outline" onClick={() => router.push("/")}>Back to home</Button>
+          <Button variant="outline" onClick={() => router.push("/")}>
+            Back to home
+          </Button>
         </div>
       </div>
     );
@@ -97,7 +96,7 @@ const CarDetailPage = () => {
             </div>
           </CardContent>
           <CardFooter className="text-sm text-gray-500 border-t pt-3">
-            Seller: {sellerName}
+            Seller: {car.seller_username || "Seller"}
           </CardFooter>
         </Card>
       </div>
@@ -106,5 +105,3 @@ const CarDetailPage = () => {
 };
 
 export default CarDetailPage;
-
-

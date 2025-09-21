@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
@@ -8,7 +8,9 @@ import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Star } from 'lucide-react'
+import ReactPaginate from 'react-paginate'
 import { Car } from './(pages)/dashboard/page'
+import CarImageCarousel from '@/components/component/CarImageCarousel'
 
 const HomePage = () => {
   const supabase = createClient()
@@ -22,9 +24,15 @@ const HomePage = () => {
   const [loading, setLoading] = useState<boolean>(true)
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [userId, setUserId] = useState<string | null>(null)
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({})
 
-  const hasFilters = useMemo(() => Boolean(brand || model || mileage || year), [brand, model, mileage, year])
+  // pagination state
+  const [currentPage, setCurrentPage] = useState(0)
+  const itemsPerPage = 9
+
+  const hasFilters = useMemo(
+    () => Boolean(brand || model || mileage || year),
+    [brand, model, mileage, year]
+  )
 
   useEffect(() => {
     const init = async () => {
@@ -39,7 +47,10 @@ const HomePage = () => {
   const fetchCars = async (uid?: string) => {
     setLoading(true)
     try {
-      let query = supabase.from('cars').select('*').order('created_at', { ascending: false })
+      let query = supabase
+        .from('cars')
+        .select('*')
+        .order('created_at', { ascending: false })
 
       if (brand) query = query.ilike('brand', `%${brand}%`)
       if (model) query = query.ilike('model', `%${model}%`)
@@ -51,39 +62,25 @@ const HomePage = () => {
 
       const list = (data ?? []) as Car[]
       setCars(list)
-      await loadThumbnails(list)
+      setCurrentPage(0) // reset to first page after fetch
 
       if (uid) await loadFavorites(uid)
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to load cars')
+    } catch (err: unknown) {
+      if (err instanceof Error) toast.error(err.message)
+      else toast.error('Failed to load cars')
     } finally {
       setLoading(false)
     }
   }
 
   const loadFavorites = async (uid: string) => {
-    const { data, error } = await supabase.from('favorites').select('car_id').eq('user_id', uid)
-    if (error) return
-    setFavorites(new Set((data ?? []).map((r: any) => r.car_id as string)))
-  }
-
-  const loadThumbnails = async (list: Car[]) => {
-    const ids = Array.from(new Set(list.map((c) => c.id)))
-    if (ids.length === 0) return
     const { data, error } = await supabase
-      .from('car_images')
-      .select('car_id, path, created_at')
-      .in('car_id', ids)
-      .order('created_at', { ascending: true })
+      .from('favorites')
+      .select('car_id')
+      .eq('user_id', uid)
+
     if (error) return
-    const firstByCar: Record<string, string> = {}
-    for (const row of (data as any[]) || []) {
-      if (!firstByCar[row.car_id]) {
-        const { data: pub } = supabase.storage.from('car-images').getPublicUrl(row.path)
-        firstByCar[row.car_id] = pub.publicUrl
-      }
-    }
-    setThumbnails((prev) => ({ ...prev, ...firstByCar }))
+    setFavorites(new Set((data ?? []).map((r: { car_id: string }) => r.car_id)))
   }
 
   const toggleFavorite = async (carId: string) => {
@@ -94,26 +91,42 @@ const HomePage = () => {
     const isFav = favorites.has(carId)
     try {
       if (isFav) {
-        const { error } = await supabase.from('favorites').delete().eq('user_id', userId).eq('car_id', carId)
+        const { error } = await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', userId)
+          .eq('car_id', carId)
         if (error) throw error
         const next = new Set(favorites)
         next.delete(carId)
         setFavorites(next)
       } else {
-        const { error } = await supabase.from('favorites').insert({ user_id: userId, car_id: carId })
+        const { error } = await supabase
+          .from('favorites')
+          .insert({ user_id: userId, car_id: carId })
         if (error) throw error
         const next = new Set(favorites)
         next.add(carId)
         setFavorites(next)
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update favorite')
+    } catch (err: unknown) {
+      if (err instanceof Error) toast.error(err.message)
+      else toast.error('Failed to update favorite')
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     await fetchCars(userId ?? undefined)
+  }
+
+  // pagination logic
+  const pageCount = Math.ceil(cars.length / itemsPerPage)
+  const offset = currentPage * itemsPerPage
+  const currentItems = cars.slice(offset, offset + itemsPerPage)
+
+  const handlePageClick = ({ selected }: { selected: number }) => {
+    setCurrentPage(selected)
   }
 
   return (
@@ -124,13 +137,33 @@ const HomePage = () => {
           onSubmit={handleSubmit}
           className="bg-white rounded-xl shadow-md p-6 grid grid-cols-1 md:grid-cols-2 gap-4"
         >
-          <Input placeholder="Brand" value={brand} onChange={(e) => setBrand(e.target.value)} />
-          <Input placeholder="Model" value={model} onChange={(e) => setModel(e.target.value)} />
-          <Input placeholder="Max Mileage" type="number" value={mileage} onChange={(e) => setMileage(e.target.value)} />
-          <Input placeholder="Year" type="number" value={year} onChange={(e) => setYear(e.target.value)} />
+          <Input
+            placeholder="Brand"
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+          />
+          <Input
+            placeholder="Model"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+          />
+          <Input
+            placeholder="Max Mileage"
+            type="number"
+            value={mileage}
+            onChange={(e) => setMileage(e.target.value)}
+          />
+          <Input
+            placeholder="Year"
+            type="number"
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+          />
 
           <div className="col-span-1 md:col-span-2 flex gap-3">
-            <Button type="submit" className="flex-1">Search</Button>
+            <Button type="submit" className="flex-1">
+              Search
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -155,46 +188,70 @@ const HomePage = () => {
           ) : cars.length === 0 ? (
             <p className="text-gray-500 text-center">No cars found.</p>
           ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {cars.map((car) => {
-                const sellerLabel = car.seller_username || 'Seller'
-                const isFav = favorites.has(car.id)
-                const thumb = thumbnails[car.id]
+            <>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {currentItems.map((car) => {
+                  const sellerLabel = car.seller_username || 'Seller'
+                  const isFav = favorites.has(car.id)
 
-                return (
-                  <Link key={car.id} href={`/cars/${car.id}`} className="group">
-                    <Card className="relative flex flex-col rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden">
-                      <button
-                        type="button"
-                        aria-label="favorite"
-                        onClick={(e) => { e.preventDefault(); toggleFavorite(car.id) }}
-                        className={`absolute top-3 right-3 z-10 p-2 rounded-full shadow-sm transition ${
-                          isFav ? 'bg-yellow-100 text-yellow-500' : 'bg-white text-gray-400 hover:text-gray-600'
-                        }`}
-                      >
-                        <Star fill={isFav ? 'currentColor' : 'none'} className="w-5 h-5" />
-                      </button>
+                  return (
+                    <Link key={car.id} href={`/cars/${car.id}`} className="group relative">
+                      <Card className="flex flex-col rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden">
+                        {/* Favorite Button */}
+                        <button
+                          type="button"
+                          aria-label="favorite"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            toggleFavorite(car.id)
+                          }}
+                          className={`absolute top-3 right-3 z-10 p-2 rounded-full shadow-sm transition ${
+                            isFav
+                              ? 'bg-yellow-100 text-yellow-500'
+                              : 'bg-white text-gray-400 hover:text-gray-600'
+                          }`}
+                        >
+                          <Star fill={isFav ? 'currentColor' : 'none'} className="w-5 h-5" />
+                        </button>
 
-                      {thumb ? (
-                        <img src={thumb} alt={`${car.brand} ${car.model}`} className="w-full h-44 object-cover" />
-                      ) : (
-                        <div className="w-full h-44 bg-gray-200" />
-                      )}
+                        <CarImageCarousel carId={car.id} />
 
-                      <CardHeader>
-                        <CardTitle className="text-base font-semibold">
-                          {car.brand} {car.model}
-                        </CardTitle>
-                      </CardHeader>
+                        <CardHeader>
+                          <CardTitle className="text-base font-semibold">
+                            {car.brand} {car.model}
+                          </CardTitle>
+                        </CardHeader>
 
-                      <CardFooter className="text-xs text-gray-500 border-t pt-2">
-                        Seller: {sellerLabel}
-                      </CardFooter>
-                    </Card>
-                  </Link>
-                )
-              })}
-            </div>
+                        <CardFooter className="text-xs text-gray-500 border-t pt-2">
+                          Seller: {sellerLabel}
+                        </CardFooter>
+                      </Card>
+                    </Link>
+                  )
+                })}
+              </div>
+
+              {/* Pagination */}
+              {cars.length > itemsPerPage && (
+                <div className="flex justify-center mt-10">
+                  <ReactPaginate
+                    previousLabel={'← Previous'}
+                    nextLabel={'Next →'}
+                    breakLabel={'...'}
+                    pageCount={pageCount}
+                    marginPagesDisplayed={2}
+                    pageRangeDisplayed={3}
+                    onPageChange={handlePageClick}
+                    containerClassName={'flex gap-2 text-gray-700'}
+                    pageClassName={'px-3 py-1 rounded-md border cursor-pointer'}
+                    activeClassName={'bg-blue-500 text-white border-blue-500'}
+                    previousClassName={'px-3 py-1 rounded-md border cursor-pointer'}
+                    nextClassName={'px-3 py-1 rounded-md border cursor-pointer'}
+                    disabledClassName={'opacity-50 cursor-not-allowed'}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
