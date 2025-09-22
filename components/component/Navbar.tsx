@@ -34,7 +34,7 @@ const Navbar = () => {
     }
   }, [loading, user, router]);
 
-  // ✅ Strongly typed nav links
+  // Nav links
   const navLinks: NavLink[] = [
     { name: "Home", href: "/", icon: <Home /> },
     { name: "Profile", href: "/profile", icon: <User /> },
@@ -47,7 +47,6 @@ const Navbar = () => {
   return (
     <nav className="w-full fixed top-0 left-0 bg-[#191919] text-white shadow-md z-50">
       <div className="max-w-7xl mx-auto flex justify-between items-center py-4 px-6 md:px-12">
-        {/* Logo */}
         <h1
           className="text-2xl font-bold cursor-pointer"
           onClick={() => router.push("/")}
@@ -55,7 +54,7 @@ const Navbar = () => {
           AutoSphere
         </h1>
 
-        {/* Desktop Links */}
+        {/* Desktop */}
         <div className="hidden md:flex space-x-6 items-center">
           {navLinks.map((link) => (
             <Button
@@ -76,7 +75,7 @@ const Navbar = () => {
           </Button>
         </div>
 
-        {/* Mobile Menu Button */}
+        {/* Mobile toggle */}
         <div className="md:hidden flex items-center">
           <button onClick={() => setMenuOpen(!menuOpen)}>
             {menuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -84,7 +83,7 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile */}
       {menuOpen && (
         <div className="md:hidden flex flex-col items-center bg-[#191919] w-full py-4 space-y-4">
           {navLinks.map((link) => (

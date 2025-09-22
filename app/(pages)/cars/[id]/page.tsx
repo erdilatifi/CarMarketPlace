@@ -142,7 +142,7 @@ const CarDetailPage = () => {
           </CardFooter>
         </Card>
 
-        {/* Contact CTAs */}
+        {/* Actions */}
         <div className="flex gap-3">
           <Button
             onClick={() => {

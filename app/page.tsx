@@ -26,7 +26,7 @@ const HomePage = () => {
   const [year, setYear] = useState<string>('')
   const [userId, setUserId] = useState<string | null>(null)
 
-  // pagination state
+  // Pagination
   const [currentPage, setCurrentPage] = useState(0)
   const itemsPerPage = 9
 
@@ -35,7 +35,7 @@ const HomePage = () => {
     [brand, model, mileage, year]
   )
 
-  // get session and userId once
+  // Session
   useQuery({
     queryKey: ['session'],
     queryFn: async () => {
@@ -46,7 +46,7 @@ const HomePage = () => {
     },
   })
 
-  // available brands (distinct)
+  // Brands (distinct)
   const { data: brands = [], isLoading: loadingBrands } = useQuery({
     queryKey: ['brands'],
     queryFn: async () => {
@@ -60,7 +60,7 @@ const HomePage = () => {
     },
   })
 
-  // cars list (depends on filters)
+  // Cars
   const { data: cars = [], isLoading: loadingCars } = useQuery({
     queryKey: ['cars', { brand, model, mileage, year }],
     queryFn: async () => {
@@ -79,7 +79,7 @@ const HomePage = () => {
     },
   })
 
-  // favorites set when userId exists
+  // Favorites
   const { data: favoritesSet = new Set<string>(), isLoading: loadingFavs } = useQuery({
     queryKey: ['favoriteIds', userId],
     enabled: Boolean(userId),
@@ -124,7 +124,7 @@ const HomePage = () => {
     await queryClient.invalidateQueries({ queryKey: ['cars'] })
   }
 
-  // pagination logic
+  // Pagination logic
   const pageCount = Math.ceil(cars.length / itemsPerPage)
   const offset = currentPage * itemsPerPage
   const currentItems = cars.slice(offset, offset + itemsPerPage)
@@ -136,7 +136,7 @@ const HomePage = () => {
   return (
     <div className="min-h-screen w-full bg-gray-50 pt-28 px-6 pb-10">
       <div className="max-w-7xl mx-auto">
-        {/* Search / Filter Form */}
+        {/* Filters */}
         <form
           onSubmit={handleSubmit}
           className="bg-white rounded-xl shadow-md p-6 grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -212,7 +212,7 @@ const HomePage = () => {
                   return (
                     <Link key={car.id} href={`/cars/${car.id}`} className="group relative">
                       <Card className="flex flex-col rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden">
-                        {/* Favorite Button */}
+                        {/* Favorite */}
                         <button
                           type="button"
                           aria-label="favorite"
