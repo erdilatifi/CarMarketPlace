@@ -11,6 +11,7 @@ import { createClient } from "@/utils/supabase/client";
 import { Car } from "@/app/(pages)/dashboard/page";
 import { useAuth } from "@/context/AuthContext";
 import TempImageUploader from "@/components/component/TempImageUploader";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
   car?: Car;
@@ -20,6 +21,7 @@ interface Props {
 const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
   const supabase = createClient();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
@@ -30,6 +32,9 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
   const [fuelType, setFuelType] = useState("Gasoline");
   const [saving, setSaving] = useState(false);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [description, setDescription] = useState<string>("");
+  const [locationLat, setLocationLat] = useState<string>("");
+  const [locationLng, setLocationLng] = useState<string>("");
 
   useEffect(() => {
     if (car) {
@@ -41,6 +46,9 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
       setGearbox(car.gearbox);
       setFuelType(car.fuel_type);
       setSelectedImages([]);
+      setDescription((car as any).description || "");
+      setLocationLat(((car as any).location_lat ?? "").toString());
+      setLocationLng(((car as any).location_lng ?? "").toString());
     } else {
       setBrand("");
       setModel("");
@@ -50,6 +58,9 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
       setGearbox("Manual");
       setFuelType("Gasoline");
       setSelectedImages([]);
+      setDescription("");
+      setLocationLat("");
+      setLocationLng("");
     }
   }, [car, modalOpen]);
 
@@ -93,7 +104,11 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
       fuel_type: fuelType,
       seller_id: user.id, 
       seller_username: user.user_metadata?.full_name || 'No name set',
+      seller_phone: user.user_metadata?.seller_phone || null,
       updated_at: new Date().toISOString(),
+      description,
+      location_lat: locationLat ? Number(locationLat) : null,
+      location_lng: locationLng ? Number(locationLng) : null,
     };
 
     try {
@@ -126,7 +141,13 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
       }
 
       toast.success("Car saved successfully!");
-      fetchCars(); // refresh list
+      // Refresh lists via TanStack Query invalidation
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['cars'] }),
+        queryClient.invalidateQueries({ queryKey: ['sellerCars'] }),
+        queryClient.invalidateQueries({ queryKey: ['favoriteIds'] }),
+      ]);
+      fetchCars(); // keep compatibility for current page refresh
       setModalOpen(false);
     } catch (error: any) {
       toast.error(error.message);
@@ -154,6 +175,16 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
             <Input value={model} onChange={(e) => setModel(e.target.value)} />
           </div>
           <div>
+            <Label className="mb-2">Description</Label>
+            <textarea
+              className="w-full rounded-md border px-3 py-2 text-sm"
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe the car (condition, features, etc.)"
+            />
+          </div>
+          <div>
             <Label className="mb-2">Year</Label>
             <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} />
           </div>
@@ -164,6 +195,28 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
           <div>
             <Label className="mb-2">Mileage (km)</Label>
             <Input type="number" value={mileage} onChange={(e) => setMileage(Number(e.target.value))} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="mb-2">Location Latitude</Label>
+              <Input
+                type="number"
+                step="any"
+                value={locationLat}
+                onChange={(e) => setLocationLat(e.target.value)}
+                placeholder="e.g., 41.9028"
+              />
+            </div>
+            <div>
+              <Label className="mb-2">Location Longitude</Label>
+              <Input
+                type="number"
+                step="any"
+                value={locationLng}
+                onChange={(e) => setLocationLng(e.target.value)}
+                placeholder="e.g., 12.4964"
+              />
+            </div>
           </div>
           <div>
             <Label className="mb-2">Gearbox</Label>

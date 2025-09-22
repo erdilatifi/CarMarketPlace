@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Card, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Star } from 'lucide-react'
@@ -8,112 +8,102 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 import { Car } from '../dashboard/page'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import Spinner from '@/components/ui/spinner'
 
 
 const FavoritesPage = () => {
   const { user, loading } = useAuth()
   const supabase = createClient()
+  const queryClient = useQueryClient()
 
-  const [favorites, setFavorites] = useState<Car[]>([])
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({})
-  const [favIds, setFavIds] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    if (user) fetchFavorites()
-  }, [user])
-
-  const fetchFavorites = async () => {
-    try {
-      // 1️⃣ Get favorite car_ids
-      const { data: favData, error: favError } = await supabase
+  const { data: favIds = new Set<string>(), isLoading: loadingFavIds } = useQuery({
+    queryKey: ['favoriteIds', user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('favorites')
         .select('car_id')
-        .eq('user_id', user?.id)
+        .eq('user_id', user!.id)
+      if (error) throw error
+      return new Set((data ?? []).map((r: { car_id: string }) => r.car_id))
+    },
+  })
 
-      if (favError) throw favError
-
-      const ids = (favData ?? []).map((f: any) => f.car_id)
-      setFavIds(new Set(ids))
-      if (!ids.length) return
-
-      // 2️⃣ Fetch car details including seller_username
-      const { data: carsData, error: carsError } = await supabase
+  const { data: favorites = [], isLoading: loadingFavorites } = useQuery({
+    queryKey: ['favoriteCars', Array.from(favIds)],
+    enabled: favIds.size > 0,
+    queryFn: async () => {
+      const ids = Array.from(favIds)
+      const { data, error } = await supabase
         .from('cars')
         .select('*')
         .in('id', ids)
-
-      if (carsError) throw carsError
-
-      const carsList = (carsData ?? []) as Car[]
-      setFavorites(carsList)
-
-      // 3️⃣ Load thumbnails
-      await loadThumbnails(carsList)
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to load favorites')
+      if (error) throw error
+      return (data ?? []) as Car[]
     }
-  }
+  })
 
-  const loadThumbnails = async (list: Car[]) => {
-    const ids = Array.from(new Set(list.map(c => c.id)))
-    if (!ids.length) return
-
-    const { data, error } = await supabase
-      .from('car_images')
-      .select('car_id, path')
-      .in('car_id', ids)
-      .order('created_at', { ascending: true })
-
-    if (error) return
-
-    const firstByCar: Record<string, string> = {}
-    for (const row of (data as any[]) || []) {
-      if (!firstByCar[row.car_id]) {
-        const { data: pub } = supabase.storage.from('car-images').getPublicUrl(row.path)
-        firstByCar[row.car_id] = pub.publicUrl
+  const { data: thumbnails = {}, isLoading: loadingThumbs } = useQuery({
+    queryKey: ['favoriteThumbs', Array.from(favIds)],
+    enabled: favIds.size > 0,
+    queryFn: async () => {
+      const ids = Array.from(favIds)
+      const { data, error } = await supabase
+        .from('car_images')
+        .select('car_id, path')
+        .in('car_id', ids)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      const firstByCar: Record<string, string> = {}
+      for (const row of (data as any[]) || []) {
+        if (!firstByCar[row.car_id]) {
+          const { data: pub } = supabase.storage.from('car-images').getPublicUrl(row.path)
+          firstByCar[row.car_id] = pub.publicUrl
+        }
       }
+      return firstByCar
     }
+  })
 
-    setThumbnails(firstByCar)
-  }
-
-  const toggleFavorite = async (carId: string) => {
-    if (!user) return
-    const isFav = favIds.has(carId)
-
-    try {
+  const toggleFavorite = useMutation({
+    mutationFn: async (carId: string) => {
+      if (!user) throw new Error('Not logged in')
+      const isFav = favIds.has(carId)
       if (isFav) {
         const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('car_id', carId)
         if (error) throw error
-        setFavIds(prev => {
-          const next = new Set(prev)
-          next.delete(carId)
-          return next
-        })
-        setFavorites(prev => prev.filter(f => f.id !== carId))
       } else {
         const { error } = await supabase.from('favorites').insert({ user_id: user.id, car_id: carId })
         if (error) throw error
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update favorite')
-    }
-  }
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['favoriteIds'] }),
+        queryClient.invalidateQueries({ queryKey: ['favoriteCars'] }),
+        queryClient.invalidateQueries({ queryKey: ['favoriteThumbs'] }),
+      ])
+    },
+    onError: (err: any) => toast.error(err?.message || 'Failed to update favorite'),
+  })
 
-  if (loading) return <p className="text-center mt-20">Loading...</p>
+  if (loading || loadingFavIds) return <div className="flex justify-center mt-20"><Spinner /></div>
 
   return (
     <div className="min-h-screen pt-28 px-6 pb-10 bg-gray-50">
       <div className="max-w-7xl mx-auto">
         <h2 className="text-2xl font-bold mb-6">Your Favorites</h2>
-        {favorites.length === 0 ? (
+        {loadingFavorites ? (
+          <div className="flex justify-center"><Spinner /></div>
+        ) : favorites.length === 0 ? (
           <p className="text-gray-500 text-center">You have no favorite cars.</p>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {favorites.map(car => {
               const sellerLabel = car.seller_username || 'Seller'
               const isFav = favIds.has(car.id)
-              const thumb = thumbnails[car.id]
+              const thumb = (thumbnails as Record<string, string>)[car.id]
 
               return (
                 <Link key={car.id} href={`/cars/${car.id}`}>
@@ -121,7 +111,7 @@ const FavoritesPage = () => {
                     <button
                       type="button"
                       aria-label="favorite"
-                      onClick={(e) => { e.preventDefault(); toggleFavorite(car.id) }}
+                      onClick={(e) => { e.preventDefault(); toggleFavorite.mutate(car.id) }}
                       className={`absolute top-3 right-3 z-10 p-2 rounded-full shadow-sm transition ${isFav ? 'bg-yellow-100 text-yellow-500' : 'bg-white text-gray-400 hover:text-gray-600'}`}
                     >
                       <Star fill={isFav ? 'currentColor' : 'none'} className="w-5 h-5" />

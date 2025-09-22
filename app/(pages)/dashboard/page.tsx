@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
@@ -9,6 +9,8 @@ import ReactPaginate from "react-paginate";
 import CarFormModal from "@/components/component/CardFormModal";
 import CarCard from "@/components/component/CarCard";
 import ConfirmationDialog from "@/components/ui/confirmation-dialog";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Spinner from "@/components/ui/spinner";
 
 export interface Car {
   id: string;
@@ -22,6 +24,9 @@ export interface Car {
   seller_id: string;
   seller_username: string | null;
   created_at: string;
+  description?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
 }
 
 const PAGE_SIZE = 6;
@@ -29,72 +34,64 @@ const PAGE_SIZE = 6;
 const SellerDashboard = () => {
   const { user, loading } = useAuth();
   const supabase = createClient();
-
-  const [cars, setCars] = useState<Car[]>([]);
-  const [loadingCars, setLoadingCars] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [carToDelete, setCarToDelete] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
+  const queryClient = useQueryClient();
 
-  const fetchCars = useCallback(
-    async (pageNumber: number) => {
-      if (!user) return;
-
-      setLoadingCars(true);
-
-      const from = pageNumber * PAGE_SIZE;
+  const { data, isLoading: loadingCars } = useQuery({
+    queryKey: ["sellerCars", user?.id, currentPage],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const from = currentPage * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-
       const { data, error, count } = await supabase
         .from("cars")
         .select("*", { count: "exact" })
-        .eq("seller_id", user.id)
+        .eq("seller_id", user!.id)
         .order("created_at", { ascending: false })
         .range(from, to);
-
-      if (error) {
-        toast.error(error.message);
-      } else {
-        setCars(data as Car[]);
-        setTotalCount(count ?? 0);
-      }
-
-      setLoadingCars(false);
+      if (error) throw error;
+      return { list: (data ?? []) as Car[], total: count ?? 0 };
     },
-    [supabase, user]
-  );
-
-  useEffect(() => {
-    if (user) fetchCars(0);
-  }, [user, fetchCars]);
+  });
+  const cars = data?.list ?? [];
+  const totalCount = data?.total ?? 0;
 
   const handleDeleteClick = (id: string) => {
     setCarToDelete(id);
     setDeleteDialogOpen(true);
   };
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("cars").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast.success("Car listing deleted successfully!");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["sellerCars"] }),
+        queryClient.invalidateQueries({ queryKey: ["cars"] }),
+      ]);
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to delete"),
+    onSettled: () => {
+      setCarToDelete(null);
+      setDeleteDialogOpen(false);
+    }
+  });
+
   const handleDeleteConfirm = async () => {
     if (!carToDelete) return;
-
-    const { error } = await supabase.from("cars").delete().eq("id", carToDelete);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Car listing deleted successfully!");
-      fetchCars(currentPage); // refresh current page
-    }
-
-    setCarToDelete(null);
-    setDeleteDialogOpen(false);
+    deleteMutation.mutate(carToDelete);
   };
 
   const pageCount = Math.ceil(totalCount / PAGE_SIZE);
 
   const handlePageClick = ({ selected }: { selected: number }) => {
     setCurrentPage(selected);
-    fetchCars(selected);
   };
 
   if (loading && cars.length === 0) {
@@ -113,11 +110,13 @@ const SellerDashboard = () => {
           <h1 className="text-3xl font-bold text-gray-800 mb-4 md:mb-0">
             Seller Dashboard
           </h1>
-          <CarFormModal fetchCars={() => fetchCars(0)} />
+          <CarFormModal fetchCars={() => queryClient.invalidateQueries({ queryKey: ["sellerCars"] })} />
         </div>
 
         {/* Cars Grid */}
-        {cars.length === 0 ? (
+        {loadingCars ? (
+          <div className="flex justify-center py-10"><Spinner /></div>
+        ) : cars.length === 0 ? (
           <p className="text-center text-gray-500 mt-20 text-lg">
             You have no car listings yet.
           </p>
@@ -128,7 +127,7 @@ const SellerDashboard = () => {
                 <CarCard
                   key={car.id}
                   car={car}
-                  fetchCars={() => fetchCars(currentPage)}
+                  fetchCars={() => queryClient.invalidateQueries({ queryKey: ["sellerCars"] })}
                   onDelete={handleDeleteClick}
                 />
               ))}
@@ -147,16 +146,12 @@ const SellerDashboard = () => {
                   onPageChange={handlePageClick}
                   containerClassName={'flex gap-2 text-gray-700'}
                   pageClassName={'px-3 py-1 rounded-md border cursor-pointer'}
-                  activeClassName={'bg-blue-500 text-white border-blue-500'}
+                  activeClassName={'bg-[#191919] text-white border-black'}
                   previousClassName={'px-3 py-1 rounded-md border cursor-pointer'}
                   nextClassName={'px-3 py-1 rounded-md border cursor-pointer'}
                   disabledClassName={'opacity-50 cursor-not-allowed'}
                 />
               </div>
-            )}
-
-            {loadingCars && (
-              <p className="text-center text-gray-500 mt-6">Loading cars...</p>
             )}
           </>
         )}

@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner"
 import Navbar from "@/components/component/Navbar";
 import { AuthProvider } from "@/context/AuthContext";
 import AppLoadingOverlay from "@/components/ui/app-loading-overlay";
+import QueryProvider from "@/components/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,9 +33,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0D0D0D]`}
       >
         <AuthProvider>
-        <Navbar/>
-         {children}
-         <AppLoadingOverlay/>
+          <QueryProvider>
+            <Navbar/>
+            {children}
+            <AppLoadingOverlay/>
+          </QueryProvider>
         </AuthProvider>
 
         <Toaster/>

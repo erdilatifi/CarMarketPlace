@@ -52,7 +52,7 @@ const Navbar = () => {
           className="text-2xl font-bold cursor-pointer"
           onClick={() => router.push("/")}
         >
-          AutoScout
+          AutoSphere
         </h1>
 
         {/* Desktop Links */}

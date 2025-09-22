@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import Spinner from "@/components/ui/spinner";
 
 interface Props {
   carId: string;
@@ -12,34 +14,34 @@ interface Props {
 const supabase = createClient();
 
 const CarImageCarousel: React.FC<Props> = ({ carId }) => {
-  const [images, setImages] = useState<string[]>([]);
   const [index, setIndex] = useState(0);
+  const { data: images, isLoading } = useQuery({
+    queryKey: ["carImages", carId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("car_images")
+        .select("path")
+        .eq("car_id", carId);
+      if (error) throw error;
+      const urls = (data ?? [])
+        .map((img) =>
+          supabase.storage.from("car-images").getPublicUrl(img.path).data.publicUrl
+        )
+        .filter(Boolean) as string[];
+      return urls;
+    },
+  });
 
-  const fetchImages = async () => {
-    const { data, error } = await supabase
-      .from("car_images")
-      .select("path")
-      .eq("car_id", carId);
+  if (isLoading) {
+    return (
+      <div className="relative w-full h-64 flex items-center justify-center bg-gray-100 overflow-hidden rounded-md">
+        <Spinner />
+      </div>
+    );
+  }
 
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    const urls = data
-      .map((img) =>
-        supabase.storage.from("car-images").getPublicUrl(img.path).data.publicUrl
-      )
-      .filter(Boolean) as string[];
-
-    setImages(urls);
-  };
-
-  useEffect(() => {
-    fetchImages();
-  }, [carId]);
-
-  if (images.length === 0) return <p className="text-gray-500 text-sm">No images yet</p>;
+  if (!images || images.length === 0)
+    return <p className="text-gray-500 text-sm">No images yet</p>;
 
   const prev = () => setIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
   const next = () => setIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));

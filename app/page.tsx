@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -11,18 +11,19 @@ import { Star } from 'lucide-react'
 import ReactPaginate from 'react-paginate'
 import { Car } from './(pages)/dashboard/page'
 import CarImageCarousel from '@/components/component/CarImageCarousel'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import Spinner from '@/components/ui/spinner'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
 
 const HomePage = () => {
   const supabase = createClient()
+  const queryClient = useQueryClient()
 
-  const [brand, setBrand] = useState('')
+  const [brand, setBrand] = useState('ALL')
   const [model, setModel] = useState('')
   const [mileage, setMileage] = useState<string>('')
   const [year, setYear] = useState<string>('')
-
-  const [cars, setCars] = useState<Car[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
-  const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [userId, setUserId] = useState<string | null>(null)
 
   // pagination state
@@ -30,66 +31,72 @@ const HomePage = () => {
   const itemsPerPage = 9
 
   const hasFilters = useMemo(
-    () => Boolean(brand || model || mileage || year),
+    () => Boolean((brand && brand !== 'ALL') || model || mileage || year),
     [brand, model, mileage, year]
   )
 
-  useEffect(() => {
-    const init = async () => {
+  // get session and userId once
+  useQuery({
+    queryKey: ['session'],
+    queryFn: async () => {
       const { data: sessionData } = await supabase.auth.getSession()
       const uid = sessionData.session?.user?.id ?? null
       setUserId(uid)
-      await fetchCars(uid)
-    }
-    init()
-  }, [])
+      return uid
+    },
+  })
 
-  const fetchCars = async (uid?: string) => {
-    setLoading(true)
-    try {
+  // available brands (distinct)
+  const { data: brands = [], isLoading: loadingBrands } = useQuery({
+    queryKey: ['brands'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cars')
+        .select('brand')
+      if (error) throw error
+      const unique = Array.from(new Set((data ?? []).map((r: any) => r.brand).filter(Boolean))) as string[]
+      unique.sort((a, b) => a.localeCompare(b))
+      return unique
+    },
+  })
+
+  // cars list (depends on filters)
+  const { data: cars = [], isLoading: loadingCars } = useQuery({
+    queryKey: ['cars', { brand, model, mileage, year }],
+    queryFn: async () => {
       let query = supabase
         .from('cars')
         .select('*')
         .order('created_at', { ascending: false })
-
-      if (brand) query = query.ilike('brand', `%${brand}%`)
+      if (brand && brand !== 'ALL') query = query.ilike('brand', `%${brand}%`)
       if (model) query = query.ilike('model', `%${model}%`)
       if (year) query = query.eq('year', Number(year))
       if (mileage) query = query.lte('mileage', Number(mileage))
-
       const { data, error } = await query
       if (error) throw error
+      setCurrentPage(0)
+      return (data ?? []) as Car[]
+    },
+  })
 
-      const list = (data ?? []) as Car[]
-      setCars(list)
-      setCurrentPage(0) // reset to first page after fetch
+  // favorites set when userId exists
+  const { data: favoritesSet = new Set<string>(), isLoading: loadingFavs } = useQuery({
+    queryKey: ['favoriteIds', userId],
+    enabled: Boolean(userId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('car_id')
+        .eq('user_id', userId)
+      if (error) throw error
+      return new Set((data ?? []).map((r: { car_id: string }) => r.car_id))
+    },
+  })
 
-      if (uid) await loadFavorites(uid)
-    } catch (err: unknown) {
-      if (err instanceof Error) toast.error(err.message)
-      else toast.error('Failed to load cars')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadFavorites = async (uid: string) => {
-    const { data, error } = await supabase
-      .from('favorites')
-      .select('car_id')
-      .eq('user_id', uid)
-
-    if (error) return
-    setFavorites(new Set((data ?? []).map((r: { car_id: string }) => r.car_id)))
-  }
-
-  const toggleFavorite = async (carId: string) => {
-    if (!userId) {
-      toast.error('Please login to favorite cars')
-      return
-    }
-    const isFav = favorites.has(carId)
-    try {
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: async (carId: string) => {
+      if (!userId) throw new Error('Please login to favorite cars')
+      const isFav = favoritesSet.has(carId)
       if (isFav) {
         const { error } = await supabase
           .from('favorites')
@@ -97,27 +104,24 @@ const HomePage = () => {
           .eq('user_id', userId)
           .eq('car_id', carId)
         if (error) throw error
-        const next = new Set(favorites)
-        next.delete(carId)
-        setFavorites(next)
       } else {
         const { error } = await supabase
           .from('favorites')
           .insert({ user_id: userId, car_id: carId })
         if (error) throw error
-        const next = new Set(favorites)
-        next.add(carId)
-        setFavorites(next)
       }
-    } catch (err: unknown) {
-      if (err instanceof Error) toast.error(err.message)
-      else toast.error('Failed to update favorite')
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['favoriteIds'] })
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to update favorite')
     }
-  }
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await fetchCars(userId ?? undefined)
+    await queryClient.invalidateQueries({ queryKey: ['cars'] })
   }
 
   // pagination logic
@@ -137,11 +141,20 @@ const HomePage = () => {
           onSubmit={handleSubmit}
           className="bg-white rounded-xl shadow-md p-6 grid grid-cols-1 md:grid-cols-2 gap-4"
         >
-          <Input
-            placeholder="Brand"
-            value={brand}
-            onChange={(e) => setBrand(e.target.value)}
-          />
+          <div>
+            <Label className="mb-2">Brand</Label>
+            <Select value={brand} onValueChange={(v) => setBrand(v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All brands</SelectItem>
+                {brands.map((b) => (
+                  <SelectItem key={b} value={b}>{b}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Input
             placeholder="Model"
             value={model}
@@ -169,11 +182,11 @@ const HomePage = () => {
               variant="outline"
               className="flex-1"
               onClick={() => {
-                setBrand('')
+                setBrand('ALL')
                 setModel('')
                 setMileage('')
                 setYear('')
-                fetchCars(userId ?? undefined)
+                queryClient.invalidateQueries({ queryKey: ['cars'] })
               }}
             >
               Reset
@@ -183,8 +196,10 @@ const HomePage = () => {
 
         {/* Cars Listing */}
         <div className="mt-8">
-          {loading ? (
-            <p className="text-gray-500 text-center">Loading cars...</p>
+          {loadingCars || loadingFavs ? (
+            <div className="flex justify-center">
+              <Spinner />
+            </div>
           ) : cars.length === 0 ? (
             <p className="text-gray-500 text-center">No cars found.</p>
           ) : (
@@ -192,7 +207,7 @@ const HomePage = () => {
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {currentItems.map((car) => {
                   const sellerLabel = car.seller_username || 'Seller'
-                  const isFav = favorites.has(car.id)
+                  const isFav = favoritesSet.has(car.id)
 
                   return (
                     <Link key={car.id} href={`/cars/${car.id}`} className="group relative">
@@ -203,7 +218,7 @@ const HomePage = () => {
                           aria-label="favorite"
                           onClick={(e) => {
                             e.preventDefault()
-                            toggleFavorite(car.id)
+                            toggleFavoriteMutation.mutate(car.id)
                           }}
                           className={`absolute top-3 right-3 z-10 p-2 rounded-full shadow-sm transition ${
                             isFav
@@ -235,7 +250,7 @@ const HomePage = () => {
               {cars.length > itemsPerPage && (
                 <div className="flex justify-center mt-10">
                   <ReactPaginate
-                    previousLabel={'← Previous'}
+                    previousLabel={'← Prev'}
                     nextLabel={'Next →'}
                     breakLabel={'...'}
                     pageCount={pageCount}
@@ -244,7 +259,7 @@ const HomePage = () => {
                     onPageChange={handlePageClick}
                     containerClassName={'flex gap-2 text-gray-700'}
                     pageClassName={'px-3 py-1 rounded-md border cursor-pointer'}
-                    activeClassName={'bg-blue-500 text-white border-blue-500'}
+                    activeClassName={'bg-[#191919] text-white border-black'}
                     previousClassName={'px-3 py-1 rounded-md border cursor-pointer'}
                     nextClassName={'px-3 py-1 rounded-md border cursor-pointer'}
                     disabledClassName={'opacity-50 cursor-not-allowed'}
