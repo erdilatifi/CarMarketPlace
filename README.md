@@ -1,4 +1,5 @@
-![AutoSphere Screenshot](/AUTOSPHERE.png)
+![AutoSphere Screenshot](./public/AUTOSPHERE.png)
+
 
 
 
