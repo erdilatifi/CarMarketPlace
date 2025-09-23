@@ -96,18 +96,18 @@ const SellerDashboard = () => {
 
   if (loading && cars.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <p className="text-gray-500 text-lg">Loading seller dashboard...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground text-lg">Loading seller dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-gray-100 px-6 py-20">
-      <div className="max-w-7xl mx-auto flex flex-col gap-6">
+    <div className="min-h-screen w-full px-6 py-10 md:py-12">
+      <div className="max-w-7xl mx-auto flex flex-col gap-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-lg shadow-md">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4 md:mb-0">
+        <div className="flex flex-col md:flex-row justify-between items-center bg-black/40 backdrop-blur border border-white/10 p-6 rounded-2xl shadow-sm">
+          <h1 className="mb-4 md:mb-0">
             Seller Dashboard
           </h1>
           <CarFormModal fetchCars={() => queryClient.invalidateQueries({ queryKey: ["sellerCars"] })} />
@@ -117,12 +117,12 @@ const SellerDashboard = () => {
         {loadingCars ? (
           <div className="flex justify-center py-10"><Spinner /></div>
         ) : cars.length === 0 ? (
-          <p className="text-center text-gray-500 mt-20 text-lg">
+          <p className="text-center text-muted-foreground mt-20 text-lg">
             You have no car listings yet.
           </p>
         ) : (
           <>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {cars.map((car) => (
                 <CarCard
                   key={car.id}
@@ -135,23 +135,36 @@ const SellerDashboard = () => {
 
             {/* React Paginate */}
             {pageCount > 1 && (
-              <div className="flex justify-center mt-6">
-                <ReactPaginate
-                  previousLabel={'← Previous'}
-                  nextLabel={'Next →'}
-                  breakLabel={'...'}
-                  pageCount={pageCount}
-                  marginPagesDisplayed={2}
-                  pageRangeDisplayed={3}
-                  onPageChange={handlePageClick}
-                  containerClassName={'flex gap-2 text-gray-700'}
-                  pageClassName={'px-3 py-1 rounded-md border cursor-pointer'}
-                  activeClassName={'bg-[#191919] text-white border-black'}
-                  previousClassName={'px-3 py-1 rounded-md border cursor-pointer'}
-                  nextClassName={'px-3 py-1 rounded-md border cursor-pointer'}
-                  disabledClassName={'opacity-50 cursor-not-allowed'}
-                />
-              </div>
+<div className="flex justify-center mt-10">
+  <ReactPaginate
+    previousLabel="← Prev"
+    nextLabel="Next →"
+    breakLabel="..."
+    pageCount={pageCount}
+    marginPagesDisplayed={2}
+    pageRangeDisplayed={3}
+    onPageChange={handlePageClick}
+    containerClassName="flex gap-3 text-sm font-medium items-center"
+    
+    pageClassName="px-4 py-2 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-700 
+                   hover:bg-zinc-800 hover:text-white hover:border-zinc-500 
+                   transition-colors duration-200 cursor-pointer"
+    
+    activeClassName="!bg-white !text-black !border-white shadow-md"
+    
+    previousClassName="px-5 py-2 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-700 
+                       hover:bg-zinc-800 hover:text-white hover:border-zinc-500 
+                       transition-colors duration-200 cursor-pointer"
+    nextClassName="px-5 py-2 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-700 
+                   hover:bg-zinc-800 hover:text-white hover:border-zinc-500 
+                   transition-colors duration-200 cursor-pointer"
+    
+    breakClassName="px-4 py-2 rounded-full text-zinc-500"
+    
+    disabledClassName="opacity-40 cursor-not-allowed"
+  />
+</div>
+
             )}
           </>
         )}

@@ -97,29 +97,41 @@ const ProfilePage = () => {
 
   // Handle profile update
   const handleUpdate = async () => {
-    // Build E.164 from dial code + subscriber
-    const combined = buildE164(dialCode, subscriber);
-    const valid = isValidE164(combined);
-    if (!valid) {
-      setPhoneError('Please enter a valid phone (E.164), e.g., +38345123456');
-      return;
+    // Only validate/update phone if the user actually provided/changed it.
+    // If subscriber is empty and there is no previously saved phone, omit seller_phone from update.
+    let updatePayload: Record<string, any> = {
+      full_name: username,
+      role,
+    };
+
+    const hadExistingPhone = Boolean(user?.user_metadata?.seller_phone);
+    const userProvidedSubscriber = (subscriber || '').trim().length > 0;
+
+    if (userProvidedSubscriber) {
+      const combined = buildE164(dialCode, subscriber);
+      if (!isValidE164(combined)) {
+        setPhoneError('Please enter a valid phone (E.164), e.g., +38345123456');
+        return;
+      }
+      updatePayload.seller_phone = combined;
+      setSellerPhone(combined);
+      setPhoneError(null);
+    } else if (hadExistingPhone) {
+      // Keep existing phone by not sending a new value
+    } else {
+      // No phone on file and none provided now: do not include seller_phone in update
     }
-    setSellerPhone(combined);
-    setPhoneError(null);
+
     setSaving(true);
     const { error } = await supabase.auth.updateUser({
-      data: {
-        full_name: username,
-        role,
-        seller_phone: combined,
-      },
+      data: updatePayload,
     });
 
     if (error) {
       toast.error(error.message);
     } else {
       toast.success('Profile updated successfully!');
-      setOpen(false); // ✅ close modal after success
+      setOpen(false);
     }
     setSaving(false);
   };
@@ -150,139 +162,140 @@ const ProfilePage = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Loading profile...</p>
+        <p className="text-muted-foreground">Loading profile...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center  p-6">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="min-h-screen w-full flex items-center justify-center p-6">
+      <Card className="w-full max-w-2xl rounded-3xl bg-gradient-to-b from-[#121212] to-[#161616] ring-1 ring-white/5 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_18px_50px_-12px_rgba(0,0,0,0.7)] transition">
         <CardHeader>
-          <CardTitle className="text-xl font-bold">Profile</CardTitle>
+          <CardTitle className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">Profile</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p><strong>Email:</strong> {user?.email}</p>
-          <p><strong>Name:</strong> {user?.user_metadata?.full_name || 'No name set'}</p>
-          <p><strong>Role:</strong> {user?.user_metadata?.role || 'Not assigned'}</p>
-          <div className="flex items-center gap-2">
-            <p><strong>Phone (WhatsApp):</strong> {sellerPhone || user?.user_metadata?.seller_phone || 'Not set'}</p>
-            {(sellerPhone || user?.user_metadata?.seller_phone) && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  const v = sellerPhone || (user?.user_metadata?.seller_phone as string);
-                  try {
-                    await navigator.clipboard.writeText(v);
-                    toast.success('Phone copied to clipboard');
-                  } catch {
-                    toast.error('Failed to copy');
-                  }
-                }}
-              >
-                Copy
-              </Button>
-            )}
-          </div>
-
-          {/* Modal trigger */}
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="mt-4 w-full">Edit Profile</Button>
-            </DialogTrigger>
-
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Edit Profile</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                {/* Username input */}
-                <div>
-                  <Label htmlFor="username" className='mb-2'>Username</Label>
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                  />
-                </div>
-
-                {/* Role selector */}
-                <div>
-                  <Label htmlFor="role" className='mb-2'>Role</Label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger id="role">
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="buyer">Buyer</SelectItem>
-                      <SelectItem value="seller">Seller</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Phone number (E.164 from Dial code + Subscriber) */}
-                <div>
-                  <Label htmlFor="seller_phone" className='mb-2'>Phone (WhatsApp)</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-2 items-center">
-                    <Select value={dialCode} onValueChange={setDialCode}>
-                      <SelectTrigger aria-label="Country dial code">
-                        <SelectValue placeholder="Dial code" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {COUNTRIES.map(c => (
-                          <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      id="seller_phone"
-                      placeholder="subscriber number (e.g., 45123456)"
-                      value={subscriber}
-                      onChange={(e) => {
-                        // Only digits allowed for the subscriber part
-                        const digits = e.target.value.replace(/\D/g, '');
-                        setSubscriber(digits);
-                        if (digits.trim() === '') { setPhoneError(null); return; }
-                        const combined = buildE164(dialCode, digits);
-                        if (!isPotentialE164(combined)) {
-                          setPhoneError('Digits only. Total length (with country code) must be up to 15.');
-                        } else {
-                          setPhoneError(null);
-                        }
-                      }}
-                      onBlur={() => {
-                        const combined = buildE164(dialCode, subscriber);
-                        setSellerPhone(combined);
-                        if (!isValidE164(combined)) {
-                          setPhoneError('Please enter a valid phone (E.164), e.g., +38345123456');
-                        } else {
-                          setPhoneError(null);
-                        }
-                      }}
-                    />
-                  </div>
-                  <p className={`mt-1 text-xs ${phoneError ? 'text-red-600' : 'text-gray-500'}`}>
-                    {phoneError ?? `Saved format: ${sellerPhone || '(will be +<code><number>)'}`}
-                  </p>
-                </div>
-              </div>
-              <DialogFooter className="flex gap-2">
-                <Button onClick={handleUpdate} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </Button>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <p className="text-sm md:text-base text-muted-foreground"><strong className="text-white/90">Email:</strong> {user?.email}</p>
+            <p className="text-sm md:text-base text-muted-foreground"><strong className="text-white/90">Name:</strong> {user?.user_metadata?.full_name || 'No name set'}</p>
+            <p className="text-sm md:text-base text-muted-foreground"><strong className="text-white/90">Role:</strong> {role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Buyer'}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm md:text-base text-muted-foreground"><strong className="text-white/90">Phone (WhatsApp):</strong> {sellerPhone || user?.user_metadata?.seller_phone || 'Not set'}</p>
+              {(sellerPhone || user?.user_metadata?.seller_phone) && (
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={handleApplyPhoneToAllListings}
-                  disabled={backfillLoading}
+                  size="sm"
+                  onClick={async () => {
+                    const v = sellerPhone || (user?.user_metadata?.seller_phone as string);
+                    try {
+                      await navigator.clipboard.writeText(v);
+                      toast.success('Phone copied to clipboard');
+                    } catch {
+                      toast.error('Failed to copy');
+                    }
+                  }}
                 >
-                  {backfillLoading ? 'Updating…' : 'Apply to all my listings'}
+                  Copy
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 p-4 bg-black/30">
+            <p className="text-sm text-muted-foreground">Tip: You can edit any field below. Phone is optional.</p>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button className="mt-4 w-full">Edit Profile</Button>
+              </DialogTrigger>
+
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Profile</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {/* Username input */}
+                  <div>
+                    <Label htmlFor="username" className='mb-2'>Username</Label>
+                    <Input
+                      id="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Role selector */}
+                  <div>
+                    <Label htmlFor="role" className='mb-2'>Role</Label>
+                    <Select value={role} onValueChange={setRole}>
+                      <SelectTrigger id="role">
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="buyer">Buyer</SelectItem>
+                        <SelectItem value="seller">Seller</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Phone number (optional) */}
+                  <div>
+                    <Label htmlFor="seller_phone" className='mb-2'>Phone (WhatsApp) — optional</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-2 items-center">
+                      <Select value={dialCode} onValueChange={setDialCode}>
+                        <SelectTrigger aria-label="Country dial code">
+                          <SelectValue placeholder="Dial code" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COUNTRIES.map(c => (
+                            <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        id="seller_phone"
+                        placeholder="subscriber number (e.g., 45123456)"
+                        value={subscriber}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '');
+                          setSubscriber(digits);
+                          if (digits.trim() === '') { setPhoneError(null); return; }
+                          const combined = buildE164(dialCode, digits);
+                          if (!isPotentialE164(combined)) {
+                            setPhoneError('Digits only. Total length (with country code) must be up to 15.');
+                          } else {
+                            setPhoneError(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          if ((subscriber || '').trim() === '') return; // optional
+                          const combined = buildE164(dialCode, subscriber);
+                          setSellerPhone(combined);
+                          if (!isValidE164(combined)) {
+                            setPhoneError('Please enter a valid phone (E.164), e.g., +38345123456');
+                          } else {
+                            setPhoneError(null);
+                          }
+                        }}
+                      />
+                    </div>
+                    <p className={`mt-1 text-xs ${phoneError ? 'text-red-500' : 'text-muted-foreground'}`}>
+                      {phoneError ?? `Saved format: ${sellerPhone || user?.user_metadata?.seller_phone || '(optional)'}`}
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter className="flex gap-2">
+                  <Button onClick={handleUpdate} disabled={saving}>
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleApplyPhoneToAllListings}
+                    disabled={backfillLoading}
+                  >
+                    {backfillLoading ? 'Updating…' : 'Apply to all my listings'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardContent>
       </Card>
     </div>

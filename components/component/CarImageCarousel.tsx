@@ -34,7 +34,7 @@ const CarImageCarousel: React.FC<Props> = ({ carId }) => {
 
   if (isLoading) {
     return (
-      <div className="relative w-full h-64 flex items-center justify-center bg-gray-100 overflow-hidden rounded-md">
+      <div className="relative w-full h-64 flex items-center justify-center bg-neutral-900/80 overflow-hidden rounded-xl ring-1 ring-white/5">
         <Spinner />
       </div>
     );
@@ -47,11 +47,11 @@ const CarImageCarousel: React.FC<Props> = ({ carId }) => {
   const next = () => setIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
 
   return (
-    <div className="relative w-full h-64 flex items-center justify-center bg-gray-100 overflow-hidden rounded-md">
+    <div className="relative w-full h-64 flex items-center justify-center bg-neutral-900/80 overflow-hidden rounded-xl ring-1 ring-white/5 group">
       <img
         src={images[index]}
         alt={`Car image ${index + 1}`}
-        className="object-contain w-full h-full transition-all"
+        className="object-contain w-full h-full transition-transform duration-300 ease-out group-hover:scale-[1.02]"
         loading="lazy"
       />
 

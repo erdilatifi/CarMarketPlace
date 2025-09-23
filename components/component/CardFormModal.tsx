@@ -135,12 +135,16 @@ const CarFormModal: React.FC<Props> = ({ car, fetchCars }) => {
       }
 
       // Upload images if any
+      let uploadedCount = 0;
       if (selectedImages.length > 0 && result) {
         await uploadImages(result.id, selectedImages);
-        toast.success(`${selectedImages.length} image(s) uploaded successfully!`);
+        uploadedCount = selectedImages.length;
       }
 
-      toast.success("Car saved successfully!");
+      const successMsg = uploadedCount > 0
+        ? `Car saved successfully. Uploaded ${uploadedCount} image${uploadedCount === 1 ? '' : 's'}.`
+        : "Car saved successfully.";
+      toast.success(successMsg);
       // Refresh lists via TanStack Query invalidation
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['cars'] }),

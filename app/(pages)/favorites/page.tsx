@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext'
 import { Car } from '../dashboard/page'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Spinner from '@/components/ui/spinner'
+import { loadThumbnails } from '@/utils/carUtils'
 
 
 const FavoritesPage = () => {
@@ -45,25 +46,9 @@ const FavoritesPage = () => {
   })
 
   const { data: thumbnails = {}, isLoading: loadingThumbs } = useQuery({
-    queryKey: ['favoriteThumbs', Array.from(favIds)],
-    enabled: favIds.size > 0,
-    queryFn: async () => {
-      const ids = Array.from(favIds)
-      const { data, error } = await supabase
-        .from('car_images')
-        .select('car_id, path')
-        .in('car_id', ids)
-        .order('created_at', { ascending: true })
-      if (error) throw error
-      const firstByCar: Record<string, string> = {}
-      for (const row of (data as any[]) || []) {
-        if (!firstByCar[row.car_id]) {
-          const { data: pub } = supabase.storage.from('car-images').getPublicUrl(row.path)
-          firstByCar[row.car_id] = pub.publicUrl
-        }
-      }
-      return firstByCar
-    }
+    queryKey: ['favoriteThumbs', favorites.map(f => f.id)],
+    enabled: favorites.length > 0,
+    queryFn: async () => loadThumbnails(favorites),
   })
 
   const toggleFavorite = useMutation({
@@ -91,13 +76,13 @@ const FavoritesPage = () => {
   if (loading || loadingFavIds) return <div className="flex justify-center mt-20"><Spinner /></div>
 
   return (
-    <div className="min-h-screen pt-28 px-6 pb-10 bg-gray-50">
+    <div className="min-h-screen pt-6 md:pt-8 px-6 pb-10">
       <div className="max-w-7xl mx-auto">
-        <h2 className="text-2xl font-bold mb-6">Your Favorites</h2>
+        <h2 className="mb-6">Your Favorites</h2>
         {loadingFavorites ? (
           <div className="flex justify-center"><Spinner /></div>
         ) : favorites.length === 0 ? (
-          <p className="text-gray-500 text-center">You have no favorite cars.</p>
+          <p className="text-muted-foreground text-center">You have no favorite cars.</p>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {favorites.map(car => {
@@ -107,26 +92,26 @@ const FavoritesPage = () => {
 
               return (
                 <Link key={car.id} href={`/cars/${car.id}`}>
-                  <Card className="relative flex flex-col rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden">
+                  <Card className="relative flex flex-col rounded-2xl bg-gradient-to-b from-[#121212] to-[#161616] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_18px_50px_-12px_rgba(0,0,0,0.7)] transition overflow-hidden ring-1 ring-white/5">
                     <button
                       type="button"
                       aria-label="favorite"
                       onClick={(e) => { e.preventDefault(); toggleFavorite.mutate(car.id) }}
-                      className={`absolute top-3 right-3 z-10 p-2 rounded-full shadow-sm transition ${isFav ? 'bg-yellow-100 text-yellow-500' : 'bg-white text-gray-400 hover:text-gray-600'}`}
+                      className={`absolute top-3 right-3 z-10 p-2 rounded-full shadow-sm transition border border-white/10 ${isFav ? 'bg-yellow-100 text-yellow-600' : 'bg-white text-black hover:bg-black hover:text-white'}`}
                     >
                       <Star fill={isFav ? 'currentColor' : 'none'} className="w-5 h-5" />
                     </button>
 
                     {thumb ? (
-                      <img src={thumb} alt={`${car.brand} ${car.model}`} className="w-full h-44 object-cover" />
+                      <img src={thumb} alt={`${car.brand} ${car.model}`} className="w-full h-44 object-cover transition-transform duration-300 ease-out group-hover:scale-[1.02]" />
                     ) : (
-                      <div className="w-full h-44 bg-gray-200" />
+                      <div className="w-full h-44 bg-neutral-900/80" />
                     )}
 
                     <CardHeader>
-                      <CardTitle className="text-base font-semibold">{car.brand} {car.model}</CardTitle>
+                      <CardTitle className="text-base font-semibold text-white">{car.brand} {car.model}</CardTitle>
                     </CardHeader>
-                    <CardFooter className="text-xs text-gray-500 border-t pt-2">
+                    <CardFooter className="text-xs text-muted-foreground border-t border-white/10 pt-2">
                       Seller: {sellerLabel}
                     </CardFooter>
                   </Card>

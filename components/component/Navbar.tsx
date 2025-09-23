@@ -4,6 +4,7 @@ import { Button } from "../ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { Menu, X, Home, User, Heart, LayoutDashboard } from "lucide-react";
+import Link from "next/link";
 
 interface NavLink {
   name: string;
@@ -45,31 +46,30 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className="w-full fixed top-0 left-0 bg-[#191919] text-white shadow-md z-50">
-      <div className="max-w-7xl mx-auto flex justify-between items-center py-4 px-6 md:px-12">
+    <nav className="w-full fixed top-0 left-0 z-50 border-b border-white/10 bg-black/40 backdrop-blur supports-[backdrop-filter]:bg-black/30">
+      <div className="max-w-7xl mx-auto flex justify-between items-center py-4 px-6 md:px-10 text-white">
         <h1
-          className="text-2xl font-bold cursor-pointer"
+          className="text-2xl md:text-3xl font-extrabold tracking-tight cursor-pointer"
           onClick={() => router.push("/")}
         >
           AutoSphere
         </h1>
 
         {/* Desktop */}
-        <div className="hidden md:flex space-x-6 items-center">
+        <div className="hidden md:flex items-center gap-4">
           {navLinks.map((link) => (
-            <Button
+            <Link
               key={link.name}
-              variant="ghost"
-              className="flex items-center gap-2 hover:text-black"
-              onClick={() => router.push(link.href)}
+              href={link.href}
+              className="flex items-center gap-2 text-sm md:text-base text-white/80 hover:text-white transition-colors"
             >
               {link.icon} {link.name}
-            </Button>
+            </Link>
           ))}
           <Button
-            variant="outline"
+            variant="pill"
             onClick={handleSignOut}
-            className="text-black"
+            className="ml-2"
           >
             {user ? "Sign Out" : "Sign In"}
           </Button>
@@ -85,24 +85,20 @@ const Navbar = () => {
 
       {/* Mobile */}
       {menuOpen && (
-        <div className="md:hidden flex flex-col items-center bg-[#191919] w-full py-4 space-y-4">
+        <div className="md:hidden flex flex-col items-center w-full py-4 space-y-4 bg-black/60 backdrop-blur border-t border-white/10">
           {navLinks.map((link) => (
-            <Button
+            <Link
               key={link.name}
-              variant="ghost"
-              className="flex items-center gap-2 hover:text-blue-500"
-              onClick={() => {
-                router.push(link.href);
-                setMenuOpen(false);
-              }}
+              href={link.href}
+              className="flex items-center gap-2 text-white/90 hover:text-white"
+              onClick={() => setMenuOpen(false)}
             >
               {link.icon} {link.name}
-            </Button>
+            </Link>
           ))}
           <Button
-            variant="outline"
+            variant="pill"
             onClick={handleSignOut}
-            className="text-black"
           >
             {user ? "Sign Out" : "Sign In"}
           </Button>

@@ -28,14 +28,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0D0D0D]`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
           <QueryProvider>
             <Navbar/>
-            {children}
+            <main className="min-h-screen pt-20 md:pt-24">
+              {children}
+            </main>
             <AppLoadingOverlay/>
           </QueryProvider>
         </AuthProvider>

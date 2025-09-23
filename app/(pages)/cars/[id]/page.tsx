@@ -80,11 +80,11 @@ const CarDetailPage = () => {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 pt-28 px-6 pb-10">
+    <div className="min-h-screen w-full pt-6 md:pt-8 px-6 pb-10">
       <div className="max-w-5xl mx-auto grid grid-cols-1 gap-6">
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden rounded-2xl bg-gradient-to-b from-[#121212] to-[#161616] ring-1 ring-white/5">
           <CardHeader>
-            <CardTitle className="text-2xl font-semibold">
+            <CardTitle className="text-2xl font-semibold text-white">
               {car.brand} {car.model}
             </CardTitle>
           </CardHeader>
@@ -100,7 +100,7 @@ const CarDetailPage = () => {
             {car.description && (
               <div className="mt-4">
                 <h3 className="font-semibold mb-2">Description</h3>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{car.description}</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{car.description}</p>
               </div>
             )}
             {car.location_lat != null && car.location_lng != null && (
@@ -130,13 +130,13 @@ const CarDetailPage = () => {
               </div>
             )}
           </CardContent>
-          <CardFooter className="text-sm text-gray-500 border-t pt-3">
+          <CardFooter className="text-sm text-muted-foreground border-t border-white/10 pt-3">
             <div className="flex flex-col gap-1">
               <span>Seller: {car.seller_username || "Seller"}</span>
               {hasPhone ? (
                 <span>Phone: {phoneForWhatsapp}</span>
               ) : (
-                <span className="text-xs text-gray-400">No phone provided for this listing</span>
+                <span className="text-xs text-muted-foreground/70">No phone provided for this listing</span>
               )}
             </div>
           </CardFooter>

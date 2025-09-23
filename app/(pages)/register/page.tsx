@@ -77,7 +77,7 @@ const Page = () => {
                   checked={role === 'buyer'}
                   onCheckedChange={() => setRole('buyer')}
                 />
-                <Label htmlFor="buyer">buyer</Label>
+                <Label htmlFor="buyer">Buyer</Label>
               </div>
 
               {/* Seller */}
