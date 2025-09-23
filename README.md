@@ -2,6 +2,7 @@
 
 
 
+
 🚗 AutoSphere – Car Marketplace
 
 AutoSphere is a modern, responsive car marketplace built with Next.js, Supabase, and TanStack Query. Users can browse, create, favorite, and manage car listings, view mini maps, and contact sellers via WhatsApp or call.
