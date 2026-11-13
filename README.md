@@ -1,120 +1,99 @@
-![AutoSphere Screenshot](./public/AUTOSPHERE.png)
+# AutoSphere
 
+A car marketplace where people list vehicles for sale, browse and filter listings, save favorites and contact sellers directly by phone or WhatsApp.
 
-[Watch Demo Video](https://drive.google.com/file/d/1EIkYStuFNxvfidNXHs0f7BdWaMtaf4JQ/view?usp=drive_link)
+![AutoSphere](docs/screenshot.png)
 
+[Demo video](https://drive.google.com/file/d/1EIkYStuFNxvfidNXHs0f7BdWaMtaf4JQ/view?usp=drive_link)
 
-🚗 AutoSphere – Car Marketplace
+## Features
 
-AutoSphere is a modern, responsive car marketplace built with Next.js, Supabase, and TanStack Query. Users can browse, create, favorite, and manage car listings, view mini maps, and contact sellers via WhatsApp or call.
+- **Listings.** Create and edit listings with brand, model, year, price, mileage, gearbox, fuel type, description and an exact map location.
+- **Image galleries.** Upload several photos per car to Supabase Storage. They are shown in a responsive carousel.
+- **Search and filters.** Filter the home feed by brand, model, year and mileage. Results are cached with TanStack Query, so moving between pages is instant.
+- **Favorites.** Save cars and come back to them on a dedicated page.
+- **Seller dashboard.** A paginated view of your own listings with edit and delete.
+- **Listing details.** Photo carousel, full specifications, an embedded OpenStreetMap view and one-tap call or WhatsApp buttons.
+- **Profile.** Phone numbers are stored in E.164 format, and profile changes can be applied to all of your listings at once.
+- **Accounts.** Supabase Auth with sign-up, sign-in and password reset.
 
+## Tech stack
 
+| Layer         | Technology                                          |
+| ------------- | --------------------------------------------------- |
+| Framework     | Next.js 15 (App Router), React 19, TypeScript       |
+| Styling       | Tailwind CSS 4, shadcn/ui, Radix UI, lucide-react   |
+| Data fetching | TanStack Query 5                                    |
+| Backend       | Supabase (PostgreSQL, Auth, Storage)                |
+| Maps          | OpenStreetMap embeds                                |
 
-✨ Features
+## Project structure
 
-Car Listings: Create/edit listings with brand, model, year, price, mileage, gearbox, fuel type, description, and precise location (lat/lng).
-Image Uploads: Multiple images stored in Supabase Storage, displayed in a responsive carousel.
-Home Feed & Filters: Filter by brand/model/year/mileage, with instant caching via TanStack Query.
-Favorites: Save cars and view them in a dedicated favorites page.
-Seller Dashboard: Manage your listings (edit/delete) with pagination.
-Car Detail: Carousel, specs, description, mini map, WhatsApp/Call buttons.
-Profile: Update name, role, and phone in E.164 format, with one-click application to all listings.
-Auth & UX: Supabase Auth, smooth Tailwind CSS UI, loading states, and reactive toasts.
+```
+app/
+  (pages)/        Routes: cars/[id], dashboard, favorites, profile, auth pages
+  page.tsx        Home feed with filters
+components/
+  component/      Feature components (CarCard, CarImageCarousel, CardFormModal, Navbar)
+  ui/             shadcn/ui primitives
+context/          Auth context
+utils/supabase/   Browser, server and middleware Supabase clients
+supabase/         Database schema
+```
 
+## Getting started
 
-🛠 Tech Stack
+### Prerequisites
 
-Frontend: Next.js 15, React 19, TypeScript, Tailwind CSS, shadcn/ui
-Backend: Supabase (Postgres, Auth, Storage)
-Data Fetching: TanStack Query
-UI/Icons: lucide-react, sonner (toasts)
-Maps: OpenStreetMap iframes
+- Node.js 18 or later
+- A Supabase project
 
+### Setup
 
-🚀 Quick Start
-Prerequisites
+1. Install dependencies.
 
-Node.js 18+
-Supabase project with Storage bucket car-images
-Setup
-git clone <repo-url>
-cd autosphere
-npm install
+   ```bash
+   npm install
+   ```
 
-Create .env.local:
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+2. Create the database tables by running [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL editor.
 
+3. In Supabase Storage, create a bucket named `car-images` and make it publicly readable.
 
-Database (Supabase SQL)
--- Cars table
-create table public.cars (
-  id uuid primary key default gen_random_uuid(),
-  brand text not null,
-  model text not null,
-  year int,
-  price numeric,
-  mileage int,
-  gearbox text,
-  fuel_type text,
-  description text,
-  location_lat double precision,
-  location_lng double precision,
-  seller_id uuid not null references auth.users(id) on delete cascade,
-  seller_username text,
-  seller_phone text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+4. Copy `.env.example` to `.env.local` and fill in your project values.
 
--- Favorites
-create table public.favorites (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  car_id uuid not null references public.cars(id) on delete cascade,
-  created_at timestamptz default now(),
-  primary key(user_id, car_id)
-);
+   ```bash
+   cp .env.example .env.local
+   ```
 
--- Car images
-create table public.car_images (
-  id bigserial primary key,
-  car_id uuid not null references public.cars(id) on delete cascade,
-  path text not null,
-  created_at timestamptz default now()
-);
+   | Variable                        | Description                   |
+   | ------------------------------- | ----------------------------- |
+   | `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL          |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous public key |
 
-Run Locally
-npm run dev
+5. Start the development server and open http://localhost:3000.
 
+   ```bash
+   npm run dev
+   ```
 
-Open http://localhost:3000
+### Scripts
 
-Build & Production
-npm run build
-npm start
+| Command         | Description                   |
+| --------------- | ----------------------------- |
+| `npm run dev`   | Start the development server  |
+| `npm run build` | Create a production build     |
+| `npm start`     | Serve the production build    |
+| `npm run lint`  | Run ESLint                    |
 
-📖 Usage
+## Troubleshooting
 
-Auth: Sign up/login, reset password via Supabase
-Profile: Select country code, enter subscriber digits → saved as E.164 (+38345123456)
-Create/Edit Car: Add description, location, and images
-Browse Listings: Filter by brand/model/year/mileage, favorite cars
-Car Detail: View images, specs, mini map, contact via WhatsApp or call
+- **Call or WhatsApp buttons do nothing.** The seller's phone number must be in E.164 format (a `+` followed by 8 to 15 digits).
+- **The map is missing.** The listing has no `location_lat` and `location_lng` values.
+- **Images do not load.** Check that the `car-images` bucket exists and is publicly readable.
 
+## License
 
-☁️ Deployment
-Vercel:
-Push repo to GitHub
-Import project in Vercel
-Add env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+Copyright (c) 2025 Erdi Latifi.
 
-Deploy
-Other providers: Same steps; ensure npm run build is supported.
-
-🐞 Troubleshooting
-
-Phone issues: Must be E.164 format (+ followed by 8–15 digits).
-WhatsApp button not working: Ensure seller_phone is correctly saved.
-Map not showing: Listing must have location_lat and location_lng.
-Images missing: Ensure car-images bucket exists and is publicly readable or use signed URLs.
-Brand filter errors: Use sentinel "ALL" for default option.
+This project is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). You may use, study and modify it for personal, educational and other noncommercial purposes. Commercial use is not permitted without written permission from the author.
